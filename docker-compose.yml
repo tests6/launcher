@@ -1,0 +1,54 @@
+version: '3'
+services:
+  database:
+    container_name: ayomi-db-server
+    build:
+      context: ../db_server
+      dockerfile: Dockerfile
+    image: ayomi-db-server
+    ports:
+      - '5432:5432'
+    networks:
+      - ayomi-network
+
+  backend:
+    container_name: ayomi-rest-api-server
+    build:
+      context: ../rest_api_server
+      dockerfile: Dockerfile
+    image: ayomi-rest-api-server
+    depends_on:
+      - database
+    ports:
+      - '8000:8000'
+    networks:
+      - ayomi-network
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-d", "ayomi_db", "-U", "ayomi" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  web:
+    container_name: ayomi-webserver
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      args:
+        - BACKEND_IP=${BACKEND_IP}
+    image: ayomi-webserver
+    depends_on:
+      - backend
+    ports:
+      - '8080:80'
+    networks:
+      - ayomi-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://backend:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+  
+networks:
+  ayomi-network:
+    driver: bridge
